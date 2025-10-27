@@ -1,4 +1,4 @@
-# ChainLottery 运行指南（中文）
+# ChainLottery 运行指南
 
 > 建议使用 **Python 3.9**、**Node.js 20** 及 **Hardhat 2.26** 以上版本，确保所有依赖与脚本兼容。
 
