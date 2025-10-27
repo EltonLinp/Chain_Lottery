@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ChainLottery Demo</title>
+    <link rel="stylesheet" href="/assets/styles.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <h1>ChainLottery Demo</h1>
+      <button id="wallet-button" class="primary-btn">Connect Wallet</button>
+      <div id="wallet-address" class="wallet-address">Not connected</div>
+      <a href="/admin" class="secondary-btn">Admin Console</a>
+    </header>
+
+    <main class="app-main">
+      <section class="card">
+        <h2>Purchase Ticket</h2>
+        <form id="purchase-form">
+          <p class="note">Select six numbers between 1 and 35 in ascending order.</p>
+          <div class="numbers-grid" id="number-inputs"></div>
+          <div class="form-actions">
+            <button type="submit" class="primary-btn">Submit</button>
+          </div>
+        </form>
+        <div id="purchase-message" class="message"></div>
+      </section>
+
+      <section class="card">
+        <h2>Ticket History</h2>
+        <div id="tickets-empty" class="empty-state">No tickets yet</div>
+        <ul id="tickets-list" class="tickets-list"></ul>
+      </section>
+    </main>
+
+    <footer class="app-footer">
+      <small>Status: <span id="status-indicator">Checking...</span></small>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/ethers@6.12.0/dist/ethers.umd.min.js" defer></script>
+    <script src="/assets/app.js" defer></script>
+  </body>
+</html>

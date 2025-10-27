@@ -1,0 +1,30 @@
+
+*** Begin Patch
+*** Update File: backend/routes/tickets.py
+@@
+-    try:
+-        blockchain_client = get_blockchain_client()
+-        period_id = asyncio.run(blockchain_client.get_current_period())
+-    except Exception as exc:  # pragma: no cover
+-        current_app.logger.warning("Using fallback period because RPC call failed: %s", exc)
+-        period_id = -1
+-    ticket = ticket_repo.create_ticket(period_id=period_id, numbers=data.numbers)
+-    record = ticket.to_dict()
++    period_id_from_chain: Optional[int] = None
++    try:
++        blockchain_client = get_blockchain_client()
++        value = asyncio.run(blockchain_client.get_current_period())
++        if isinstance(value, int) and value > 0:
++            period_id_from_chain = value
++    except Exception as exc:  # pragma: no cover
++        current_app.logger.warning("Using fallback period because RPC call failed: %s", exc)
++
++    if period_id_from_chain is not None:
++        ticket_repo.set_current_period(period_id_from_chain)
++        period_id = period_id_from_chain
++    else:
++        period_id = ticket_repo.get_current_period()
++
++    ticket = ticket_repo.create_ticket(numbers=data.numbers, period_id=period_id)
++    record = ticket.to_dict()
+*** End Patch
