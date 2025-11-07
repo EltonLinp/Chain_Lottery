@@ -1,45 +1,39 @@
-const fs = require("fs");
-const path = require("path");
 const hre = require("hardhat");
+require("dotenv").config();
 
 async function main() {
   const [deployer] = await hre.ethers.getSigners();
+  console.log(`Deploying with ${deployer.address} on ${hre.network.name}`);
 
-  console.log("Deploying contracts with:", await deployer.getAddress());
+  const ChainLottery = await hre.ethers.getContractFactory("ChainLottery");
+  const contract = await ChainLottery.deploy();
+  await contract.waitForDeployment();
 
-  const TicketNFT = await hre.ethers.getContractFactory("TicketNFT");
-  const ticketNFT = await TicketNFT.deploy("ChainLottery Ticket", "CLT", "https://example.com/tickets/");
-  await ticketNFT.waitForDeployment();
+  const contractAddress = await contract.getAddress();
+  console.log(`ChainLottery deployed at ${contractAddress}`);
 
-  const LotteryCore = await hre.ethers.getContractFactory("LotteryCore");
-  const ticketPrice = hre.ethers.parseEther("0.01");
-  const lotteryCore = await LotteryCore.deploy(await ticketNFT.getAddress(), ticketPrice);
-  await lotteryCore.waitForDeployment();
+  const oracleRole = await contract.ORACLE_ROLE();
+  const oracleAddress = process.env.ORACLE_ADDRESS;
 
-  const minterRole = await ticketNFT.MINTER_ROLE();
-  await (await ticketNFT.grantRole(minterRole, await lotteryCore.getAddress())).wait();
+  if (
+    oracleAddress &&
+    oracleAddress.toLowerCase() !== deployer.address.toLowerCase()
+  ) {
+    const tx = await contract.grantRole(oracleRole, oracleAddress);
+    await tx.wait();
+    console.log(`Granted ORACLE_ROLE to ${oracleAddress}`);
+  } else {
+    console.log(
+      "No ORACLE_ADDRESS provided (or matches deployer). Deployer retains ORACLE_ROLE by default.",
+    );
+  }
 
-  console.log("TicketNFT deployed to:", await ticketNFT.getAddress());
-  console.log("LotteryCore deployed to:", await lotteryCore.getAddress());
-
-  const outputDir = path.join(__dirname, "..", "deployed");
-  fs.mkdirSync(outputDir, { recursive: true });
-
-  const deployment = {
-    network: "localhost",
-    ticketNFT: await ticketNFT.getAddress(),
-    lotteryCore: await lotteryCore.getAddress(),
-    ticketPrice: ticketPrice.toString(),
-    timestamp: new Date().toISOString(),
-  };
-
-  fs.writeFileSync(path.join(outputDir, "localhost.json"), JSON.stringify(deployment, null, 2));
-  console.log("Deployment saved to deployed/localhost.json");
+  console.log(
+    "Remember to record this address in deployed/<network>.json and .env files.",
+  );
 }
 
-main()
-  .then(() => process.exit(0))
-  .catch((error) => {
-    console.error(error);
-    process.exit(1);
-  });
+main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});

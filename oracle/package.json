@@ -1,0 +1,21 @@
+{
+  "name": "oracle",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "lint": "prettier --check .",
+    "fmt": "prettier --write ."
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "dotenv": "^17.2.3",
+    "ethers": "^6.15.0"
+  },
+  "devDependencies": {
+    "prettier": "^3.6.2"
+  }
+}

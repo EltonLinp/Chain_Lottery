@@ -3,11 +3,11 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
+    "build": "hardhat compile",
     "test": "hardhat test",
-    "lint": "prettier --check \"contracts/**/*.sol\" \"test/**/*.{js,ts}\"",
-    "format": "prettier --write \"contracts/**/*.sol\" \"test/**/*.{js,ts}\"",
-    "node": "hardhat node",
-    "deploy:local": "hardhat run scripts/deploy.js --network localhost"
+    "lint": "prettier --check .",
+    "deploy:local": "hardhat run scripts/deploy.js",
+    "deploy:sepolia": "hardhat run scripts/deploy.js --network sepolia"
   },
   "keywords": [],
   "author": "",
@@ -15,10 +15,11 @@
   "description": "",
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^6.1.0",
-    "hardhat": "^2.26.3",
-    "prettier": "^3.6.2"
+    "hardhat": "^2.26.5",
+    "prettier": "^3.3.3"
   },
   "dependencies": {
-    "@openzeppelin/contracts": "^5.4.0"
+    "@openzeppelin/contracts": "^5.4.0",
+    "dotenv": "^17.2.3"
   }
 }

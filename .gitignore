@@ -1,17 +1,6 @@
-# Dependencies
-node_modules/
-
-# Hardhat files
-cache/
-artifacts/
-
-# Environment files
+.venv
+artifacts
+cache
+node_modules
 .env
 
-# Python
-__pycache__/
-.pytest_cache/
-
-# OS
-.DS_Store
-Thumbs.db

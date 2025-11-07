@@ -1,138 +1,91 @@
-# ChainLottery 运行指南
+# ChainLottery 后端指南
 
-> 建议使用 **Python 3.9**、**Node.js 20** 及 **Hardhat 2.26** 以上版本，确保所有依赖与脚本兼容。
-
-## 项目依赖环境
-
-| 类型 | 说明 |
+## 工具版本
+| 工具 | 版本 |
 | --- | --- |
-| Python 解释器 | 建议 `3.9.x`，并使用 `venv` 创建隔离环境 |
-| Node.js / npm | Node `20.x`（Hardhat 对 Node 18 存在警告） |
-| 数据库 | PostgreSQL 14+（若未安装，可暂时使用 SQLite，数据库相关功能会降级） |
-| 本地区块链 | Hardhat 内建节点 |
+| Node.js | 20.19.5 |
+| npm | 10.8.2 |
+| Hardhat | 2.26.5 |
 
-### Python 依赖（`requirements.txt`）
+## 目录速览
+- `contracts/ChainLottery.sol`：6/49 合约（开期 → 购票 → 关期 → 官方开奖 → 兑奖）。
+- `test/ChainLottery.test.js`：Hardhat 单测，覆盖生命周期、号码校验、开奖逻辑与兑奖。
+- `scripts/deploy.js`：部署脚本，按 `.env` 自动设置 `ORACLE_ROLE`。
+- `scripts/demo-flow.js`：无头脚本，串联开期→购票→关期→开奖→兑奖并输出日志。
+- `oracle/`：Node.js 预言机，读取 `results.json` 校验号码并调用 `commitResult`，自带幂等和重试。
+- `bff/`：Express 只读 API，提供 `/healthz`、`/periods`、`/tickets?user=0x...`。
+- `deployed/`：各网络部署信息（如 `deployed/sepolia.json`）。
+- `logs/demo-run-*.json`：无头脚本在 Sepolia 的演示日志。
+- `PLAN.md`：三日执行计划（中文策划书版本）。
 
+## 环境变量（根目录 `.env`）
 ```
-Flask==2.2.5
-web3==6.11.3
-requests==2.31.0
-python-dotenv==1.0.1
-SQLAlchemy==1.4.54
-alembic==1.13.2
-psycopg2-binary==2.9.9
-gunicorn==20.1.0
-pydantic==1.10.18
-celery==5.3.6
-pytest==7.4.4
-pytest-asyncio==0.23.7
-eth-typing==3.5.2
+RPC_URL=https://sepolia.infura.io/v3/XXXX
+PRIVATE_KEY=0x...              # OWNER / 部署钱包
+ETHERSCAN_API_KEY=XXXX
+CONTRACT_ADDRESS=0x...         # 部署后更新
+ORACLE_ADDRESS=0x...           # 预言机角色地址
+ORACLE_PRIVATE_KEY=0x...       # 预言机钱包
+PLAYER_PRIVATE_KEY=0x...       # demo-flow 用的购票/兑奖钱包
+RESULTS_PATH=oracle/results.json
+CONTRACT_ABI_PATH=artifacts/contracts/ChainLottery.sol/ChainLottery.json
+ORACLE_MAX_RETRIES=3
+ORACLE_RETRY_DELAY_MS=5000
+DEMO_TICKET_PRICE_ETH=0.01
+DEMO_SALES_WINDOW=600
+DEMO_WINNING_NUMBERS=1,5,12,23,34,45
+PORT=4100                      # BFF 监听端口
 ```
+`oracle/.env` 与 `.env.example` 可以复用同样字段。
 
-安装方式（建议在虚拟环境中）：
+## 合约要点
+- **单期走完再开新期**：`openRound`（OWNER）→ `closeRound` → `commitResult`（ORACLE）→ `claim`。
+- **号码规则**：`uint32[6]`，范围 1–49 且严格递增；购票与开奖共用同一校验函数。
+- **奖池均分**：所有购票金额累积进 `jackpot`，官方开奖后按组合哈希得到 `winnersCount`，兑奖金额 = `jackpot / winnersCount`。
+- **事件**：`RoundOpened`、`RoundClosed`、`TicketPurchased`、`ResultCommitted`、`PrizePaid`，方便前端/后端监听。
+- **安全**：基于 OpenZeppelin `AccessControl` 与 `ReentrancyGuard`，并校验票价、截止时间、幂等提交等边界。
 
-```powershell
-python -m venv .venv（本人用的是python 3.9.8）
-.venv\Scripts\activate
-pip install -r requirements.txt
-```
-
-### Node 依赖
-
-```powershell
+## 开发与测试
+```bash
 npm install
+npm run build
+npm test
 ```
 
-## 准备本地区块链（Hardhat）
-
-1. **启动节点** （终端 A）  
-   ```powershell
-   npx hardhat node --hostname 127.0.0.1
-   ```
-   终端会打印 20 个测试账号与私钥，请保留窗口不要关闭。
-
-2. **编译 + 部署合约** （终端 B）  
-   ```powershell
-   npx hardhat compile
-   npx hardhat run scripts/deploy.js --network localhost
-   ```
-   结束后会在 `deployed/localhost.json` 中写入 `ticketNFT`、`lotteryCore` 地址及票价。
-
-## 配置环境变量（`.env`）
-
-复制下列模板到项目根目录的 `.env` 并按实际替换：
-
-```
-RPC_URL=http://127.0.0.1:8545
-LOTTERY_CONTRACT_ADDRESS=<deploy 输出的 lotteryCore 地址>
-LOTTERY_ABI_PATH=artifacts/contracts/LotteryCore.sol/LotteryCore.json
-DATABASE_URL=postgresql://chainlottery:密码@localhost:5432/chainlottery
-FLASK_SECRET_KEY=change-me
-ADMIN_API_KEY=<可选，留空则不校验>
-ORACLE_SIGNER=<Hardhat 节点输出的私钥（带 0x，长度 66）>
+## 部署到 Sepolia
+```bash
+npm run deploy:sepolia
+# 记得同步 deployed/sepolia.json 与 .env 中的地址
 ```
 
-- `ORACLE_SIGNER` 必须是部署者或已被授予 `MANAGER_ROLE`、`ORACLE_ROLE` 的账户私钥，否则后台无法在链上提交开奖交易。
-- 如果还没有安装 PostgreSQL，可暂时把 `DATABASE_URL` 改为 `sqlite:///chainlottery.db`，功能会自动降级。
-
-## 启动后端服务
-
-每次修改 `.env` 后，需要重启 Flask：
-
-```powershell
-.venv\Scripts\activate
-flask --app backend.app:create_app run
+## 无头演示脚本
+```bash
+npx hardhat run scripts/demo-flow.js --network sepolia
 ```
+脚本会读取 `.env` 中的三个钱包依次执行开期、购票、关期、开奖、兑奖，并把结果写入 `logs/demo-run-<timestamp>.json`。
 
-后台默认监听 `http://127.0.0.1:5000`。
-
-## 启动前端 / 管理页面
-
-- 用户界面：`http://127.0.0.1:5000/`
-- 管理后台：`http://127.0.0.1:5000/admin`
-
-使用提示：
-
-1. 浏览器安装 MetaMask（或兼容钱包），新建网络：
-   - RPC URL：`http://127.0.0.1:8545`
-   - Chain ID：`31337`
-   - 货币符号随意（如 ETH）。
-2. 在管理页顶部输入 `ADMIN_API_KEY`（若 `.env` 中留空可忽略）。
-3. 开奖流程会在链上自动执行：关闭售票 → 写入结果 → 结算 → 打开下一期，并同步数据库。若签名账户没权限，会返回授权错误。
-
-## PostgreSQL 初始化（如需）
-
-```powershell
-createdb chainlottery
-psql -d chainlottery -c "CREATE USER chainlottery WITH PASSWORD 'yourpassword';"
-psql -d chainlottery -c "GRANT ALL PRIVILEGES ON DATABASE chainlottery TO chainlottery;"
-psql -d chainlottery -c "GRANT ALL ON SCHEMA public TO chainlottery;"
+## 预言机脚本
+```bash
+cd oracle
+npm install        # 首次
+npm run start      # 读取 results.json，校验号码并调用 commitResult
 ```
-把 `.env` 中的 `DATABASE_URL` 替换成对应的连接串即可。
+脚本会打印 roundId、号码与 oracle 地址；若目标期已开奖则自动跳过，否则按配置重试提交。
 
-## 常用调试命令
-
-| 目的 | 命令 |
-| --- | --- |
-| 查看链上合约是否部署 | `npx hardhat console --network localhost` <br>`> await ethers.provider.getCode("<LOTTERY_CONTRACT_ADDRESS>");` 返回非 `"0x"` 即成功 |
-| 重新部署合约 | `npx hardhat run scripts/deploy.js --network localhost` |
-| 后端单元测试 | `python -m pytest backend/tests`（需要额外 mock 配置） |
-| 清空数据库记录（慎用） | `DELETE FROM draws; DELETE FROM tickets; UPDATE system_state SET current_period = 1 WHERE id = 1;` |
-
-## 全部启动流程快速回顾
-
-```powershell
-# 终端 A：本地区块链
-npx hardhat node --hostname 127.0.0.1
-
-# 终端 B：编译并部署
-npx hardhat compile
-npx hardhat run scripts/deploy.js --network localhost
-（更新 .env 中的 LOTTERY_CONTRACT_ADDRESS、ORACLE_SIGNER 等）
-
-# 终端 C：Flask 后端
-.venv\Scripts\activate
-flask --app backend.app:create_app run
+## BFF API
+```bash
+cd bff
+npm install        # 首次
+npm run dev        # 或 npm run start，默认监听 PORT=4100
 ```
+接口：
+- `GET /healthz` → `{ status, network, chainId, contract }`
+- `GET /periods` → 当前轮次状态（销售时间、票价、奖池、开奖号码等）
+- `GET /tickets?user=0x...` → 指定地址所有购票记录与实时 `prizeOf`（默认回溯 5000 区块）
 
-浏览器访问 `http://127.0.0.1:5000` 体验购票、`http://127.0.0.1:5000/admin` 执行开奖即可。
+## 交付清单与证据
+- Sepolia 合约：`0xb802F2035C334dB3Ac10bB630Fb731A8496e7644`（详见 `deployed/sepolia.json`）。
+- 预言机：`oracle/index.js`、`oracle/results.json`、`oracle/.env.example`。
+- 闭环日志：`logs/demo-run-*.json`，记录 `openRound -> buyTicket -> closeRound -> commitResult -> claim` 的所有交易哈希。
+- BFF API 文档与 `.env.example`，可供前端直接复现或验收。
+

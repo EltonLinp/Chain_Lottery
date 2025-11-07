@@ -1,7 +1,0 @@
-{
-  "network": "localhost",
-  "ticketNFT": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
-  "lotteryCore": "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
-  "ticketPrice": "10000000000000000",
-  "timestamp": "2025-10-27T05:56:42.025Z"
-}
